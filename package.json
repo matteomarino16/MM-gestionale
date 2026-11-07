@@ -17,7 +17,9 @@
     "admin:create": "tsx scripts/create-admin.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "worker": "tsx src/worker/index.ts",
+    "worker:once": "tsx src/worker/index.ts --once"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

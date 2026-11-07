@@ -19,6 +19,8 @@ const envSchema = z.object({
   TRUST_PROXY: z.enum(["true", "false"]).default("false"),
   UPLOAD_DIR: z.string().default("./storage/documents"),
   BACKUP_DIR: z.string().default("./backups"),
+  /** Segreto condiviso con il cron di Vercel (Authorization: Bearer …). Almeno 32 caratteri. */
+  CRON_SECRET: z.string().min(32).optional(),
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),

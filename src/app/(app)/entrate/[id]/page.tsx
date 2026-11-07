@@ -77,7 +77,7 @@ export default async function ReceivableDetailPage({ params }: PageProps<"/entra
                 ["Scadenza pagamento", formatCivilDate(r.dueDate)],
                 ["IVA", `${formatNumber(r.vatRate)}%`],
                 ["Ritenuta", `${formatNumber(r.withholdingRate)}%`],
-                ["Annullato il", r.cancelledAt && formatDateTime(r.cancelledAt)],
+                !!r.cancelledAt && ["Annullato il", formatDateTime(r.cancelledAt)],
               ]}
             />
             {r.notes && <p className="mt-4 rounded-lg bg-muted/50 p-3 text-sm whitespace-pre-wrap">{r.notes}</p>}

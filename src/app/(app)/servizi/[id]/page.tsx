@@ -115,6 +115,13 @@ export default async function ServiceDetailPage({ params }: PageProps<"/servizi/
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Cicli di rinnovo</CardTitle>
+            {openRenewal && (
+              <CardAction>
+                <Link href={`/rinnovi/${openRenewal.id}`} className={buttonVariants({ size: "sm" })}>
+                  Gestisci rinnovo
+                </Link>
+              </CardAction>
+            )}
           </CardHeader>
           <CardContent>
             {service.renewals.length === 0 ? (
@@ -135,7 +142,11 @@ export default async function ServiceDetailPage({ params }: PageProps<"/servizi/
                 <TableBody>
                   {service.renewals.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell className="tabular-nums">#{r.cycleNumber}</TableCell>
+                      <TableCell className="tabular-nums">
+                        <Link href={`/rinnovi/${r.id}`} className="font-medium hover:underline">
+                          #{r.cycleNumber}
+                        </Link>
+                      </TableCell>
                       <TableCell>
                         <ExpiryBadge date={r.expiryDate} today={today} muted={r.status === "COMPLETED" || r.status === "CANCELLED"} />
                         {r.newExpiryDate && <div className="text-xs text-muted-foreground">Rinnovato fino al {formatCivilDate(r.newExpiryDate)}</div>}

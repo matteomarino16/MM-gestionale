@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/dal";
 import { prisma } from "@/lib/db/client";
@@ -51,7 +52,15 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Impostazioni" description="Account, sicurezza e sessioni attive" />
+      <PageHeader
+        title="Impostazioni"
+        description="Account, sicurezza e sessioni attive"
+        actions={
+          <Link href="/impostazioni/promemoria" className={buttonVariants({ variant: "outline" })}>
+            Promemoria
+          </Link>
+        }
+      />
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>

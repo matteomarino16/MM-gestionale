@@ -140,3 +140,15 @@ export const PAYMENT_METHOD_LABELS: Record<import("@/generated/prisma/enums").Pa
   DIRECT_DEBIT: "Addebito diretto",
   OTHER: "Altro",
 };
+
+export const CLIENT_PAYMENT_SIDE_LABELS = { NONE: "Non richiesto", OPEN: "Richiesto", PARTIAL: "Parziale", PAID: "Pagato", CANCELLED: "Annullato" } as const;
+export const PROVIDER_PAYMENT_SIDE_LABELS = { NONE: "Non registrato", OPEN: "Da pagare", PARTIAL: "Parziale", PAID: "Pagato", CANCELLED: "Annullato" } as const;
+export const PAYMENT_SIDE_TONES = { NONE: "muted", OPEN: "warning", PARTIAL: "warning", PAID: "success", CANCELLED: "muted" } as const;
+
+export const REMINDER_EVENT_STATUS_LABELS: Record<import("@/generated/prisma/enums").ReminderEventStatus, string> = {
+  PENDING: "In programma",
+  PROCESSING: "In invio",
+  DONE: "Inviato",
+  CANCELLED: "Annullato",
+  FAILED: "Non riuscito",
+};

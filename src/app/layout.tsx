@@ -7,9 +7,17 @@ export const metadata: Metadata = {
   title: { default: "Gestionale MM", template: "%s · Gestionale MM" },
   description: "Gestionale privato per clienti, servizi, rinnovi e pagamenti",
   robots: { index: false, follow: false },
+  applicationName: "Gestionale MM",
+  // Aggiunta alla schermata Home di iPhone: si apre a schermo intero come un'app.
+  appleWebApp: { capable: true, title: "Gestionale", statusBarStyle: "default" },
+  formatDetection: { telephone: false, email: false, address: false },
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Necessario per le aree sicure (env(safe-area-inset-*)) dell'iPhone.
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },

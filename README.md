@@ -9,9 +9,9 @@ Interfaccia in italiano, EUR, fuso Europe/Rome, date DD/MM/YYYY.
 | --- | --- | --- |
 | 1 | Fondamenta: Next.js, PostgreSQL, schema Prisma completo, migrazioni, autenticazione, layout | ✅ completata |
 | 2–3 | Clienti, fornitori, servizi (CRUD, ricerca, schede) | ✅ completata |
-| 4 | Registro economico: crediti, debiti, pagamenti parziali | da fare |
-| 5 | Rinnovi, regole promemoria, worker con outbox e idempotenza | da fare |
-| 6 | Notifiche in dashboard, PWA, Web Push | da fare |
+| 4 | Registro economico: crediti, debiti, pagamenti parziali | ✅ completata |
+| 5 | Rinnovi, regole promemoria, worker con outbox e idempotenza, app installabile | ✅ completata |
+| 6 | Web Push, service worker, modalità offline | da fare |
 | 7 | Documenti privati, PDF, report, CSV | da fare |
 | 8 | Backup/ripristino verificati, collaudo finale | da fare |
 
@@ -69,6 +69,8 @@ Per reimpostare una password dimenticata: `npm run admin:create -- --email tu@es
 | `npm test` | test unitari e di integrazione (Vitest) |
 | `npm run test:e2e` | test end-to-end (Playwright, desktop + mobile) |
 | `npm run db:migrate:dev` | crea una nuova migrazione dopo modifiche allo schema |
+| `npm run worker` | worker dei promemoria in ciclo continuo (locale / server) |
+| `npm run worker:once` | un solo ciclo del worker |
 | `npm run db:studio` | Prisma Studio |
 
 ### Test
@@ -143,6 +145,62 @@ tests/unit|integration|e2e
 - **Ricerca globale** nell'header (scorciatoia `/`) su clienti, servizi/domini, fornitori, crediti e costi.
 - **Importi**: formato italiano (`1.234,56`). Senza virgola, un punto seguito da tre cifre è il separatore delle
   migliaia (`1.250` = 1250), altrimenti è il separatore decimale (`12.50`, tastiere numeriche dei telefoni).
+
+### Registro economico (fase 4)
+
+- **Entrate** (`/entrate`): crediti verso i clienti. Dovuto = imponibile + IVA − ritenuta d'acconto, calcolato
+  sul server con arrotondamento commerciale al centesimo.
+- **Uscite** (`/uscite`): costi verso i fornitori, con importo previsto ed effettivo (a consuntivo) e categorie di costo.
+- **Pagamenti** (`/pagamenti`): ogni incasso/pagamento è un movimento indipendente; i saldi si ricalcolano dalla
+  somma dei movimenti non stornati, con lock di riga per evitare pagamenti concorrenti oltre il dovuto.
+  Un errore si corregge con uno **storno** motivato: il movimento resta nello storico. Date future rifiutate.
+- Filtri per periodo (giorno, settimana lun–dom, mese, trimestre, anno, intervallo), stato (incluso "scaduto",
+  derivato dalla data), cliente/fornitore/categoria.
+- Dalla scheda di un servizio o di un rinnovo si crea il credito o il costo già precompilato.
+
+### Rinnovi e promemoria (fase 5)
+
+- **Rinnovi** (`/rinnovi`): per ogni ciclo si vedono stato operativo, pagamento del cliente e del fornitore
+  (derivati dai crediti/costi collegati). Il pagamento del cliente **non** segna il rinnovo come effettuato: serve la
+  conferma esplicita con data del rinnovo e nuova scadenza. Il ciclo completato resta nello storico e si apre il
+  successivo. "Non rinnovare" annulla il ciclo e segna il servizio come scaduto.
+- **Regole** (`/impostazioni/promemoria`): rinnovi 30/14/7 giorni prima, giorno della scadenza, poi ogni 7 giorni se
+  irrisolto; crediti 7 giorni prima, alla scadenza, il giorno dopo e poi ogni 7 giorni. Orario configurabile
+  (default 09:00, Europe/Rome, con ora legale/solare). Le regole si attivano/disattivano o se ne aggiungono di nuove.
+- **Coda persistente** (`ReminderEvent`): ogni evento ha una chiave univoca
+  `tipo:risorsa:revisione:regola[:occorrenza]:canale` (es. `renewal:<id>:r2:30d:push`) e viene inserito con
+  `ON CONFLICT DO NOTHING`. L'elaborazione acquisisce gli eventi con `FOR UPDATE SKIP LOCKED`, rilegge lo stato
+  aggiornato della risorsa, crea la notifica una sola volta (chiave univoca) e una consegna push per dispositivo
+  (`UNIQUE(notification, subscription)`). Errori → nuovo tentativo con backoff esponenziale (max 5), poi `FAILED`.
+  Eventi rimasti "in lavorazione" da un worker interrotto vengono ripresi dopo 5 minuti.
+- **Avvisi obsoleti**: modificare una scadenza ne incrementa la revisione; gli eventi in coda della revisione
+  precedente, o di risorse saldate/annullate/sospese, vengono rimossi. Le notifiche non lette di crediti saldati e
+  rinnovi chiusi vengono archiviate. Dopo un arresto prolungato si recupera solo l'avviso più recente.
+- **Dove gira il worker**:
+  - in locale: `npm run worker` (sicuro con più istanze);
+  - su Vercel: cron giornaliero `vercel.json` → `GET /api/cron/reminders` protetto da `CRON_SECRET`
+    (con il piano Hobby i cron sono al massimo giornalieri), più un ciclo eseguito dopo il caricamento di una pagina
+    dell'app al massimo ogni 10 minuti (`after()`), così aprendo l'app gli avvisi sono sempre aggiornati.
+
+### App sull'iPhone
+
+Il gestionale è una PWA installabile: manifest, icone, apertura a schermo intero, barra di navigazione in basso
+e aree sicure dell'iPhone.
+
+1. Apri l'indirizzo del gestionale in **Safari** sull'iPhone ed effettua l'accesso.
+2. Tocca **Condividi** (il quadrato con la freccia) → **Aggiungi alla schermata Home** → **Aggiungi**.
+3. Apri il gestionale dall'icona "Gestionale": si avvia a schermo intero sulla Dashboard.
+
+Le notifiche push sull'iPhone (iOS 16.4+) funzionano solo dall'app aggiunta alla schermata Home: arrivano con la fase 6.
+
+### Pubblicazione su Vercel
+
+- Database: PostgreSQL Neon collegato dal marketplace Vercel (`DATABASE_URL`).
+- Variabili: `APP_URL` (es. `https://mm-gestionale.vercel.app`), `TRUST_PROXY=true`, `APP_TIMEZONE=Europe/Rome`,
+  `CRON_SECRET` (genera con `openssl rand -hex 32`).
+- Prima di pubblicare una versione con nuove migrazioni, applicarle al database di produzione:
+  `DATABASE_URL="<url non pooled>" npx prisma migrate deploy`.
+- Il client del database si connette alla prima query: la build non richiede variabili d'ambiente.
 
 ### Vincoli SQL aggiuntivi
 

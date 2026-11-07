@@ -12,6 +12,19 @@ export type DbTx = Omit<Db, "$connect" | "$disconnect" | "$on" | "$transaction" 
 
 const globalForPrisma = globalThis as unknown as { prisma?: Db };
 
-export const prisma: Db = globalForPrisma.prisma ?? createPrismaClient();
+function instance(): Db {
+  if (!globalForPrisma.prisma) globalForPrisma.prisma = createPrismaClient();
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+/**
+ * Client condiviso, creato alla prima query e non al caricamento del modulo: la build
+ * (che importa le pagine per analizzarle) non richiede DATABASE_URL.
+ */
+export const prisma: Db = new Proxy({} as Db, {
+  get(_target, prop) {
+    const client = instance();
+    const value = Reflect.get(client, prop, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});

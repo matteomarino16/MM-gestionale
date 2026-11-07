@@ -77,7 +77,7 @@ export default async function PayableDetailPage({ params }: PageProps<"/uscite/[
                 ["Importo effettivo", p.actualAmount ? formatMoney(p.actualAmount) : null],
                 ["Data prevista", formatCivilDate(p.dueDate)],
                 ["IVA", `${formatNumber(p.vatRate)}%`],
-                ["Annullato il", p.cancelledAt && formatDateTime(p.cancelledAt)],
+                !!p.cancelledAt && ["Annullato il", formatDateTime(p.cancelledAt)],
               ]}
             />
             {p.notes && <p className="mt-4 rounded-lg bg-muted/50 p-3 text-sm whitespace-pre-wrap">{p.notes}</p>}

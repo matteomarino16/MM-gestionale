@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const SESSION_COOKIES = ["__Host-gst_session", "gst_session"];
-const PUBLIC_PATHS = ["/login", "/offline"];
+// /api/cron è protetto dal proprio segreto (Authorization: Bearer CRON_SECRET), non dal cookie.
+const PUBLIC_PATHS = ["/login", "/offline", "/api/cron"];
 
 /**
  * Controllo ottimistico: senza cookie di sessione si viene rimandati al login.
@@ -28,6 +29,6 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Esclude asset statici, manifest PWA, service worker e icone.
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons/|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons/|icon.png|apple-icon|robots.txt).*)",
   ],
 };
