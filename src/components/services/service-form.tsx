@@ -10,7 +10,7 @@ import { useFormAction } from "@/components/forms/use-form-action";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import type { FormState } from "@/lib/action-result";
 import { annualizedAmount } from "@/lib/calculations/renewal-period";
@@ -18,6 +18,7 @@ import { formatMoney, formatNumber } from "@/lib/format";
 import { FREQUENCY_LABELS, INTERVAL_UNIT_LABELS, options, SERVICE_STATUS_LABELS, SERVICE_TYPE_LABELS } from "@/lib/labels";
 import { civilFromDb } from "@/lib/timezone/civil-date";
 import { parseItalianDecimal } from "@/lib/validation/common";
+import { SERVICE_CATALOG, type ServicePreset } from "@/modules/services/catalog";
 
 type Option = { id: string; name: string };
 
@@ -52,6 +53,13 @@ export function ServiceForm({
   const [interval, setInterval] = useState(service?.customIntervalValue?.toString() ?? "");
   const [cost, setCost] = useState(money(service?.providerCost));
   const [price, setPrice] = useState(money(service?.clientPrice));
+  // Modello dal catalogo: precompila tipologia, nome, descrizione e frequenza (solo nuovi servizi).
+  const [preset, setPreset] = useState<ServicePreset | null>(null);
+  const applyPreset = (id: string) => {
+    const p = SERVICE_CATALOG.find((x) => x.id === id) ?? null;
+    setPreset(p);
+    if (p) setFrequency(p.frequency);
+  };
 
   const costD = parseItalianDecimal(cost || "0");
   const priceD = parseItalianDecimal(price || "0");
@@ -77,6 +85,25 @@ export function ServiceForm({
       <input type="hidden" name="currency" value={service?.currency ?? "EUR"} />
       <FormAlert state={state} />
 
+      {!service && (
+        <FormSection title="Modello" description="Parti da un servizio del catalogo: tipologia, nome, descrizione e frequenza si compilano da soli.">
+          <FormField id="preset" label="Servizio dal catalogo" className="sm:col-span-2">
+            <NativeSelect id="preset" value={preset?.id ?? ""} onChange={(e) => applyPreset(e.target.value)} className="w-full">
+              <NativeSelectOption value="">Nessun modello (compilo a mano)</NativeSelectOption>
+              {(["Progetti", "Servizi ricorrenti"] as const).map((group) => (
+                <NativeSelectOptGroup key={group} label={group}>
+                  {SERVICE_CATALOG.filter((p) => p.group === group).map((p) => (
+                    <NativeSelectOption key={p.id} value={p.id}>
+                      {p.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelectOptGroup>
+              ))}
+            </NativeSelect>
+          </FormField>
+        </FormSection>
+      )}
+
       <FormSection title="Servizio">
         <FormField id="clientId" label="Cliente" required errors={err("clientId")}>
           <NativeSelect id="clientId" name="clientId" defaultValue={service?.clientId ?? defaultClientId ?? ""} className="w-full" aria-invalid={!!err("clientId")}>
@@ -91,7 +118,7 @@ export function ServiceForm({
           </NativeSelect>
         </FormField>
         <FormField id="type" label="Tipologia" required errors={err("type")}>
-          <NativeSelect id="type" name="type" defaultValue={service?.type ?? "DOMAIN_RENEWAL"} className="w-full">
+          <NativeSelect key={`type-${preset?.id}`} id="type" name="type" defaultValue={preset?.type ?? service?.type ?? "DOMAIN_RENEWAL"} className="w-full">
             {options(SERVICE_TYPE_LABELS).map((o) => (
               <NativeSelectOption key={o.value} value={o.value}>
                 {o.label}
@@ -100,13 +127,13 @@ export function ServiceForm({
           </NativeSelect>
         </FormField>
         <FormField id="name" label="Nome" required hint="Es. esempio.it, Hosting WordPress, Manutenzione annuale" errors={err("name")}>
-          <Input id="name" name="name" defaultValue={service?.name ?? ""} aria-invalid={!!err("name")} />
+          <Input key={`name-${preset?.id}`} id="name" name="name" defaultValue={preset?.name ?? service?.name ?? ""} aria-invalid={!!err("name")} />
         </FormField>
         <FormField id="domain" label="Dominio" hint="Facoltativo, usato anche nella ricerca" errors={err("domain")}>
           <Input id="domain" name="domain" placeholder="esempio.it" defaultValue={service?.domain ?? ""} autoCapitalize="none" />
         </FormField>
         <FormField id="description" label="Descrizione" errors={err("description")} className="sm:col-span-2">
-          <Textarea id="description" name="description" rows={2} defaultValue={service?.description ?? ""} />
+          <Textarea key={`desc-${preset?.id}`} id="description" name="description" rows={2} defaultValue={preset?.description ?? service?.description ?? ""} />
         </FormField>
       </FormSection>
 
@@ -182,10 +209,10 @@ export function ServiceForm({
       </FormSection>
 
       <FormSection title="Importi per ciclo" description="Imponibili, IVA esclusa. Formato italiano: 1.234,56">
-        <FormField id="providerCost" label="Costo del fornitore (€)" required errors={err("providerCost")}>
+        <FormField id="providerCost" label="Costo del fornitore (€)" hint="Vuoto = nessun costo" errors={err("providerCost")}>
           <Input id="providerCost" name="providerCost" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0,00" aria-invalid={!!err("providerCost")} />
         </FormField>
-        <FormField id="clientPrice" label="Prezzo al cliente (€)" required errors={err("clientPrice")}>
+        <FormField id="clientPrice" label="Prezzo al cliente (€)" hint="Vuoto = da definire (0,00 €)" errors={err("clientPrice")}>
           <Input id="clientPrice" name="clientPrice" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0,00" aria-invalid={!!err("clientPrice")} />
         </FormField>
         <FormField id="vatRate" label="Aliquota IVA (%)" required errors={err("vatRate")}>

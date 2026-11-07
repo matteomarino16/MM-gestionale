@@ -113,3 +113,32 @@ describe("servizio", () => {
     expect(serviceInputSchema.safeParse({ ...base, startDate: "2027-04-01" }).success).toBe(false);
   });
 });
+
+describe("connessione al database", () => {
+  it("rende esplicita la verifica SSL senza toccare il resto dell'URL", async () => {
+    const { normalizeSslMode } = await import("@/lib/db/client");
+    expect(normalizeSslMode("postgresql://u:p@h/db?sslmode=require&channel_binding=require")).toBe(
+      "postgresql://u:p@h/db?sslmode=verify-full&channel_binding=require",
+    );
+    expect(normalizeSslMode("postgresql://u:p@h/db?channel_binding=require&sslmode=prefer")).toBe(
+      "postgresql://u:p@h/db?channel_binding=require&sslmode=verify-full",
+    );
+    expect(normalizeSslMode("postgresql://u:p@localhost:5432/db?schema=public")).toBe("postgresql://u:p@localhost:5432/db?schema=public");
+  });
+});
+
+describe("servizio senza importi", () => {
+  it("costo e prezzo vuoti valgono zero", async () => {
+    const { serviceInputSchema } = await import("@/modules/services/schema");
+    const s = serviceInputSchema.parse({
+      clientId: "0190a3c4-0000-7000-8000-000000000001",
+      name: "E-commerce",
+      type: "ECOMMERCE",
+      frequency: "NONE",
+      providerCost: "",
+      clientPrice: "",
+      vatRate: "22",
+    });
+    expect([s.providerCost, s.clientPrice]).toEqual(["0.00", "0.00"]);
+  });
+});

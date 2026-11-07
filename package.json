@@ -19,7 +19,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "worker": "tsx src/worker/index.ts",
-    "worker:once": "tsx src/worker/index.ts --once"
+    "worker:once": "tsx src/worker/index.ts --once",
+    "vercel-build": "prisma migrate deploy && next build"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

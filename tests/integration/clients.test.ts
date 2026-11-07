@@ -103,3 +103,34 @@ describe("clienti", () => {
     expect(await globalSearch(db, "a")).toBeNull();
   });
 });
+
+describe("eliminazione dei clienti", () => {
+  it("elimina il cliente con servizi, rinnovi e notifiche se non ha storico economico", async () => {
+    const { deleteClient } = await import("@/modules/clients/service");
+    const { runReminderTick } = await import("@/modules/reminders/engine");
+    const c = await makeClient(db, userId);
+    await makeService(db, userId, c.id, { expiryDate: "2026-12-15" });
+    await runReminderTick(db, { now: new Date("2026-11-15T08:30:00Z"), workerId: "t" });
+    expect(await db.notification.count()).toBe(1);
+
+    await deleteClient(db, userId, c.id);
+    expect(await db.client.count()).toBe(0);
+    expect(await db.service.count()).toBe(0);
+    expect(await db.serviceRenewal.count()).toBe(0);
+    expect(await db.notification.count()).toBe(0);
+    expect(await db.reminderEvent.count({ where: { status: "PENDING" } })).toBe(0);
+    const log = await db.auditLog.findFirstOrThrow({ where: { action: "client.deleted" } });
+    expect(log.summary).toContain("Mario Rossi");
+  });
+
+  it("rifiuta l'eliminazione se esistono crediti o costi", async () => {
+    const { deleteClient, clientDeletionBlockers } = await import("@/modules/clients/service");
+    const c = await makeClient(db, userId);
+    const s = await makeService(db, userId, c.id);
+    await db.payable.create({ data: { serviceId: s.id, description: "costo", expectedAmount: "5", amountDue: "5" } });
+    expect((await clientDeletionBlockers(db, c.id)).blocked).toBe(true);
+    await expect(deleteClient(db, userId, c.id)).rejects.toThrow(/storico economico/);
+    expect(await db.client.count()).toBe(1);
+    expect(await db.service.count()).toBe(1);
+  });
+});

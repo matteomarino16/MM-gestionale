@@ -223,3 +223,57 @@ export function clientOptions(db: DbTx, includeId?: string) {
     select: { id: true, displayName: true },
   });
 }
+
+/** Dati economici o documenti che impediscono l'eliminazione definitiva del cliente. */
+export async function clientDeletionBlockers(db: DbTx, id: string) {
+  const [receivables, payables, documents] = await Promise.all([
+    db.receivable.count({ where: { clientId: id } }),
+    db.payable.count({ where: { OR: [{ service: { clientId: id } }, { project: { clientId: id } }, { renewal: { service: { clientId: id } } }] } }),
+    db.document.count({ where: { OR: [{ clientId: id }, { service: { clientId: id } }, { project: { clientId: id } }] } }),
+  ]);
+  return { receivables, payables, documents, blocked: receivables + payables + documents > 0 };
+}
+
+/**
+ * Elimina definitivamente un cliente insieme a servizi, rinnovi, commesse, preventivi,
+ * attività e notifiche. Consentito solo se non esistono crediti, costi, pagamenti o
+ * documenti: lo storico economico non si cancella mai (in quel caso si archivia).
+ */
+export async function deleteClient(db: Db, userId: string, id: string) {
+  await db.$transaction(async (tx) => {
+    const client = await tx.client.findUnique({ where: { id }, select: { displayName: true } });
+    if (!client) throw new DomainError("Cliente non trovato.");
+    // Blocca i servizi del cliente: nessun credito/costo può essere aggiunto durante l'eliminazione.
+    await tx.$queryRaw`SELECT id FROM "Service" WHERE "clientId" = ${id}::uuid FOR UPDATE`;
+    const blockers = await clientDeletionBlockers(tx, id);
+    if (blockers.blocked) {
+      throw new DomainError(
+        "Il cliente ha crediti, costi, pagamenti o documenti registrati: per non perdere lo storico economico non può essere eliminato. Puoi archiviarlo.",
+      );
+    }
+
+    const services = await tx.service.findMany({ where: { clientId: id }, select: { id: true } });
+    const serviceIds = services.map((s) => s.id);
+    const renewals = await tx.serviceRenewal.findMany({ where: { serviceId: { in: serviceIds } }, select: { id: true } });
+    const renewalIds = renewals.map((r) => r.id);
+
+    await tx.reminderEvent.deleteMany({ where: { target: "RENEWAL", resourceId: { in: renewalIds } } });
+    await tx.notification.deleteMany({
+      where: { OR: [{ clientId: id }, { serviceId: { in: serviceIds } }, { renewalId: { in: renewalIds } }] },
+    });
+    await tx.task.deleteMany({ where: { OR: [{ clientId: id }, { serviceId: { in: serviceIds } }, { project: { clientId: id } }] } });
+    await tx.quote.deleteMany({ where: { clientId: id } });
+    await tx.serviceRenewal.deleteMany({ where: { id: { in: renewalIds } } });
+    await tx.service.deleteMany({ where: { id: { in: serviceIds } } });
+    await tx.project.deleteMany({ where: { clientId: id } });
+    await tx.client.delete({ where: { id } });
+
+    await audit(tx, {
+      userId,
+      action: "client.deleted",
+      entityType: "Client",
+      entityId: id,
+      summary: `Cliente eliminato: ${client.displayName} (${serviceIds.length} servizi)`,
+    });
+  });
+}

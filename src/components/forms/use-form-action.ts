@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import type { FormState } from "@/lib/action-result";
+import { isNextControlFlowError, STALE_ACTION_STATE, type FormState } from "@/lib/action-result";
 
 /**
  * Invia il form a una Server Action senza il reset automatico di React 19,
@@ -20,7 +20,15 @@ export function useFormAction(
     const form = e.currentTarget;
     const data = new FormData(form);
     startTransition(async () => {
-      const result = await action(state, data);
+      let result: FormState;
+      try {
+        result = await action(state, data);
+      } catch (err) {
+        if (isNextControlFlowError(err)) throw err;
+        // Es. "Failed to find Server Action": la pagina è di una versione precedente dell'app.
+        setState(STALE_ACTION_STATE);
+        return;
+      }
       setState(result);
       if (result?.success) onSuccess?.(result, form);
     });

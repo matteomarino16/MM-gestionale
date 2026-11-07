@@ -27,6 +27,7 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clienti"
   const type = pickEnum(param(sp, "tipo"), ["PERSON", "COMPANY", "OTHER"] as const);
   const result = await listClients(prisma, params, { status, type });
   const filtered = !!(params.q || type || status !== "ACTIVE");
+  const deleted = param(sp, "eliminato") === "1";
 
   return (
     <>
@@ -39,6 +40,11 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clienti"
           </Link>
         }
       />
+      {deleted && (
+        <p role="status" className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
+          Cliente eliminato.
+        </p>
+      )}
       <ListToolbar q={params.q} placeholder="Cerca per nome, email, P.IVA, città, dominio…" resetHref="/clienti">
         <NativeSelect name="stato" defaultValue={status} aria-label="Stato">
           <NativeSelectOption value="ACTIVE">Attivi</NativeSelectOption>

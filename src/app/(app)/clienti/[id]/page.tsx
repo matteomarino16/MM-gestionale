@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Decimal } from "decimal.js";
 import { PencilIcon, PlusIcon } from "lucide-react";
 import { ClientArchiveButton } from "@/components/clients/client-archive-button";
+import { ClientDeleteButton } from "@/components/clients/client-delete-button";
 import { DetailList } from "@/components/common/detail-list";
 import { ExpiryBadge } from "@/components/common/expiry-badge";
 import { MoneyStat } from "@/components/common/stat-card";
@@ -31,7 +32,7 @@ import {
 import { addDays, civilFromDb, civilToDb, compareCivil } from "@/lib/timezone/civil-date";
 import { appToday } from "@/lib/today";
 import { uuid } from "@/lib/validation/common";
-import { getClientDetail } from "@/modules/clients/service";
+import { clientDeletionBlockers, getClientDetail } from "@/modules/clients/service";
 import { clientFinanceSummary } from "@/modules/finance/summary";
 
 export const metadata: Metadata = { title: "Scheda cliente" };
@@ -47,7 +48,7 @@ export default async function ClientDetailPage({ params }: PageProps<"/clienti/[
   const detail = await getClientDetail(prisma, id.data);
   if (!detail) notFound();
   const { client, services, projects, quotes, receivables, payments, payables, documents, tasks, history } = detail;
-  const finance = await clientFinanceSummary(prisma, client.id);
+  const [finance, blockers] = await Promise.all([clientFinanceSummary(prisma, client.id), clientDeletionBlockers(prisma, client.id)]);
   const today = appToday();
   const horizon = civilToDb(addDays(today, 60));
 
@@ -85,6 +86,7 @@ export default async function ClientDetailPage({ params }: PageProps<"/clienti/[
               <PencilIcon /> Modifica
             </Link>
             <ClientArchiveButton id={client.id} archived={client.status === "ARCHIVED"} name={client.displayName} />
+            <ClientDeleteButton id={client.id} name={client.displayName} services={services.length} blocked={blockers.blocked} />
           </>
         }
       />

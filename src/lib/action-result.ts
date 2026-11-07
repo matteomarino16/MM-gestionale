@@ -5,6 +5,8 @@ export type FormState =
   | {
       error?: string;
       success?: string;
+      /** L'azione non è raggiungibile (es. nuova versione pubblicata): serve ricaricare la pagina. */
+      reload?: boolean;
       fieldErrors?: Record<string, string[] | undefined>;
     }
   | undefined;
@@ -27,4 +29,16 @@ export class DomainError extends Error {
 export function domainErrorState(err: unknown): FormState {
   if (err instanceof DomainError) return { error: err.message, fieldErrors: err.fieldErrors };
   throw err;
+}
+
+/** Errore lato client nel chiamare una Server Action (rete assente o versione dell'app cambiata). */
+export const STALE_ACTION_STATE: NonNullable<FormState> = {
+  error: "Non è stato possibile completare l'operazione: probabilmente l'app è stata aggiornata o la connessione è assente. Ricarica la pagina e riprova; i dati inseriti non sono stati salvati.",
+  reload: true,
+};
+
+/** Gli errori interni di Next.js (redirect, notFound) vanno lasciati propagare. */
+export function isNextControlFlowError(err: unknown): boolean {
+  const digest = (err as { digest?: unknown } | null)?.digest;
+  return typeof digest === "string" && digest.startsWith("NEXT_");
 }

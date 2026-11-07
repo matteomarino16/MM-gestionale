@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { prisma } from "@/lib/db/client";
 import { formDataToObject, uuid } from "@/lib/validation/common";
 import { clientInputSchema } from "./schema";
-import { createClient, setClientArchived, updateClient } from "./service";
+import { createClient, deleteClient, setClientArchived, updateClient } from "./service";
 
 export async function createClientAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
@@ -52,4 +52,21 @@ export async function setClientArchivedAction(id: string, archived: boolean): Pr
   revalidatePath("/clienti");
   revalidatePath(`/clienti/${parsed.data}`);
   return { ok: true, message: archived ? "Cliente archiviato" : "Cliente ripristinato" };
+}
+
+export async function deleteClientAction(id: string): Promise<SimpleActionResult> {
+  const user = await requireUser();
+  const parsed = uuid.safeParse(id);
+  if (!parsed.success) return { ok: false, error: "Cliente non valido." };
+  try {
+    await deleteClient(prisma, user.id, parsed.data);
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+  revalidatePath("/clienti");
+  revalidatePath("/servizi");
+  revalidatePath("/rinnovi");
+  revalidatePath("/dashboard");
+  redirect("/clienti?eliminato=1");
 }

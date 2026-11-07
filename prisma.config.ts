@@ -10,6 +10,8 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Le migrazioni usano la connessione diretta se disponibile (Neon: DATABASE_URL_UNPOOLED),
+    // perché il pooler non supporta i lock usati da `prisma migrate`.
+    url: process.env["DATABASE_URL_UNPOOLED"] ?? process.env["DATABASE_URL"],
   },
 });

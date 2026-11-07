@@ -1,8 +1,8 @@
 import { z } from "zod";
 import {
   checkbox,
-  money,
   optionalCivilDate,
+  optionalMoney,
   optionalText,
   optionalUuid,
   percent,
@@ -22,6 +22,9 @@ const SERVICE_TYPES = [
   "SOFTWARE_LICENSE",
   "PLUGIN_THEME",
   "WEBSITE",
+  "LANDING_PAGE",
+  "ECOMMERCE",
+  "MOBILE_APP",
   "MAINTENANCE",
   "SUPPORT",
   "SEO_DIGITAL",
@@ -85,8 +88,9 @@ export const serviceInputSchema = z
       .optional()
       .nullable()
       .transform((v) => (v ? v : null)),
-    providerCost: money({ label: "Costo fornitore" }),
-    clientPrice: money({ label: "Prezzo al cliente" }),
+    // Vuoti = 0,00 €: un progetto può non avere costi di fornitore, o il prezzo è ancora da definire.
+    providerCost: optionalMoney({ label: "Costo fornitore" }).transform((v) => v ?? "0.00"),
+    clientPrice: optionalMoney({ label: "Prezzo al cliente" }).transform((v) => v ?? "0.00"),
     currency: z
       .string()
       .trim()

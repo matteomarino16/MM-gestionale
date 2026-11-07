@@ -198,11 +198,17 @@ Le notifiche push sull'iPhone (iOS 16.4+) funzionano solo dall'app aggiunta alla
 - Database: PostgreSQL Neon collegato dal marketplace Vercel (`DATABASE_URL`).
 - Variabili: `APP_URL` (es. `https://mm-gestionale.vercel.app`), `TRUST_PROXY=true`, `APP_TIMEZONE=Europe/Rome`,
   `CRON_SECRET` (genera con `openssl rand -hex 32`).
-- Prima di pubblicare una versione con nuove migrazioni, applicarle al database di produzione:
-  `DATABASE_URL="<url non pooled>" npx prisma migrate deploy`.
+- Le migrazioni vengono applicate automaticamente a ogni deploy: Vercel esegue lo script `vercel-build`
+  (`prisma migrate deploy && next build`) usando la connessione diretta `DATABASE_URL_UNPOOLED`. Se una migrazione
+  fallisce il deploy si ferma e resta online la versione precedente. Nota: anche i deploy di anteprima usano lo stesso
+  database, quindi le migrazioni vanno pubblicate solo quando sono pronte.
 - Il client del database si connette alla prima query: la build non richiede variabili d'ambiente.
 
 ### Vincoli SQL aggiuntivi
+
+> Gli indici trigram non sono descritti nello schema Prisma: quando `npm run db:migrate:dev` genera una nuova
+> migrazione, rimuovere le istruzioni `DROP INDEX "…_trgm_idx"` che propone.
+
 
 `prisma/migrations/*_constraints/migration.sql` contiene i vincoli che Prisma non esprime: CHECK su importi,
 aliquote, stati e coerenza dei totali; un solo ciclo di rinnovo aperto per servizio (indice UNIQUE parziale);

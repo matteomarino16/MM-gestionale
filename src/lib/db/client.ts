@@ -2,8 +2,16 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { getEnv } from "@/lib/env";
 
+/**
+ * `sslmode=require` (es. Neon) è già trattato da `pg` come verifica completa del certificato,
+ * ma genera un avviso a ogni connessione: lo si rende esplicito con `verify-full`.
+ */
+export function normalizeSslMode(connectionString: string): string {
+  return connectionString.replace(/([?&]sslmode=)(prefer|require|verify-ca)(?=&|$)/, "$1verify-full");
+}
+
 export function createPrismaClient(connectionString: string = getEnv().DATABASE_URL) {
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString: normalizeSslMode(connectionString) }) });
 }
 
 export type Db = ReturnType<typeof createPrismaClient>;

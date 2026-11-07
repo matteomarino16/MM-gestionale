@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { isNextControlFlowError, STALE_ACTION_STATE } from "@/lib/action-result";
 
 export type SimpleActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -43,7 +44,14 @@ export function ConfirmAction({
 
   const run = () =>
     startTransition(async () => {
-      const res = await action();
+      let res: SimpleActionResult | void;
+      try {
+        res = await action();
+      } catch (err) {
+        if (isNextControlFlowError(err)) throw err;
+        toast.error(STALE_ACTION_STATE.error);
+        return;
+      }
       if (res && !res.ok) {
         toast.error(res.error);
         return;
